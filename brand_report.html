@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>브랜드별 판매 보고서</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #141414;
+    --surface: #1f1f1f;
+    --surface-2: #262626;
+    --border: #424242;
+    --primary: #1668dc;
+    --primary-bg: rgba(22, 104, 220, 0.16);
+    --primary-hover: #3c89e8;
+    --text: rgba(255, 255, 255, 0.85);
+    --text-secondary: rgba(255, 255, 255, 0.45);
+    --text-tertiary: rgba(255, 255, 255, 0.25);
+    --success: #49aa19;
+    --warning: #d89614;
+    --danger: #dc4446;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 14px;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 232px;
+    flex-shrink: 0;
+    background: #000000;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-logo {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-logo .mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo .title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.2px;
+  }
+
+  .sidebar-nav {
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-section-label {
+    padding: 12px 12px 6px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+  }
+
+  .nav-item.active {
+    background: var(--primary-bg);
+    color: #ffffff;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer .user-meta { display: flex; flex-direction: column; line-height: 1.35; overflow: hidden; }
+  .sidebar-footer .user-name { font-size: 13px; color: var(--text); }
+  .sidebar-footer .user-role { font-size: 11.5px; color: var(--text-tertiary); }
+
+  /* ---------- Main ---------- */
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 36px 60px;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .page-header h1 {
+    margin: 0 0 4px;
+    font-size: 21px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .page-header .desc {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* ---------- Dropzone ---------- */
+  .dropzone {
+    background: var(--surface);
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    transition: border-color .15s, background .15s;
+    margin-bottom: 24px;
+    cursor: pointer;
+  }
+
+  .dropzone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .dropzone.empty {
+    padding: 46px 24px;
+  }
+
+  .dropzone.empty .dz-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .dropzone.empty .dz-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--primary-bg);
+    color: var(--primary-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .dropzone.empty .dz-icon svg { width: 22px; height: 22px; }
+
+  .dropzone.empty .dz-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .dropzone.empty .dz-sub {
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  .dropzone.empty .dz-link {
+    color: var(--primary-hover);
+    font-weight: 500;
+  }
+
+  .dropzone.loaded {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-style: solid;
+  }
+
+  .dz-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .dz-file-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: var(--primary-bg);
+    color: var(--primary-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .dz-file-icon svg { width: 18px; height: 18px; }
+
+  .dz-file-meta { min-width: 0; }
+  .dz-file-name {
+    font-size: 13.5px;
+    color: var(--text);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 420px;
+  }
+  .dz-file-stats {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .dz-reupload {
+    font-size: 12.5px;
+    color: var(--primary-hover);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .dz-reupload:hover { border-color: var(--primary); }
+
+  .dz-error {
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--danger);
+  }
+
+  /* ---------- Empty result state ---------- */
+  .empty-result {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+
+  /* ---------- Tabs ---------- */
+  .brand-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+
+  .brand-tab {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+    transition: color .15s;
+    white-space: nowrap;
+  }
+
+  .brand-tab:hover { color: var(--text); }
+  .brand-tab.active { color: var(--primary-hover); }
+
+  .brand-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 2px 2px 0 0;
+  }
+
+  /* ---------- KPI Cards ---------- */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .kpi-label { font-size: 13px; color: var(--text-secondary); }
+
+  .kpi-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .kpi-icon svg { width: 16px; height: 16px; }
+
+  .kpi-icon.blue   { background: rgba(22,104,220,0.16);  color: #3c89e8; }
+  .kpi-icon.green  { background: rgba(73,170,25,0.16);   color: #6abe39; }
+  .kpi-icon.gold   { background: rgba(216,150,20,0.16);  color: #e8b339; }
+  .kpi-icon.purple { background: rgba(114,46,209,0.16);  color: #9254de; }
+
+  .kpi-value { font-size: 25px; font-weight: 600; color: #ffffff; letter-spacing: 0.2px; }
+  .kpi-sub { font-size: 12px; color: var(--text-tertiary); }
+  .kpi-sub.up { color: var(--success); }
+  .kpi-sub.note { color: var(--text-tertiary); }
+
+  /* ---------- Panels ---------- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .panel-header h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+  .panel-header .count { font-size: 12.5px; color: var(--text-tertiary); }
+
+  .panel-body { padding: 18px 20px 8px; overflow-x: auto; }
+
+  /* ---------- Chart ---------- */
+  .monthly-chart-svg { width: 100%; height: 260px; display: block; }
+  .chart-axis-label { fill: var(--text-tertiary); font-size: 11px; font-family: inherit; }
+  .chart-grid { stroke: #2a2a2a; stroke-width: 1; }
+  .chart-empty { padding: 40px 0; text-align: center; color: var(--text-tertiary); font-size: 13px; }
+
+  /* ---------- Table ---------- */
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left;
+    background: #1d1d1d;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+
+  thead th.num { text-align: right; }
+
+  tbody td {
+    padding: 13px 20px;
+    border-bottom: 1px solid #2a2a2a;
+    font-size: 13.5px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover td { background: rgba(255, 255, 255, 0.035); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    margin-right: 10px;
+  }
+  .rank-badge.top { background: var(--primary-bg); color: var(--primary-hover); }
+
+  .client-cell { display: flex; align-items: center; }
+
+  .brand-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 9px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border: 1px solid rgba(22,104,220,0.35);
+    color: #3c89e8;
+    background: rgba(22,104,220,0.14);
+  }
+
+  .margin-cell { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+  .margin-bar-track { width: 64px; height: 5px; border-radius: 3px; background: #333; overflow: hidden; flex-shrink: 0; }
+  .margin-bar-fill { height: 100%; border-radius: 3px; }
+  .margin-pct { width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .fill-high { background: var(--success); }
+  .fill-mid  { background: var(--warning); }
+  .fill-low  { background: var(--danger); }
+
+  tfoot td {
+    padding: 13px 20px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+  }
+  tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  @media (max-width: 1080px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 720px) {
+    .sidebar { display: none; }
+    .main { padding: 20px; }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ================= Sidebar ================= -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="mark">JJ</div>
+      <div class="title">JaeJae Sales</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">General</div>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        대시보드
+      </a>
+      <a class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg>
+        브랜드 보고서
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
+        거래처 관리
+      </a>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        매출 분석
+      </a>
+      <div class="nav-section-label">System</div>
+      <a class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        설정
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">관</div>
+      <div class="user-meta">
+        <div class="user-name">관리자</div>
+        <div class="user-role">Sales Ops</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= Main ================= -->
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>브랜드별 판매 보고서</h1>
+        <p class="desc">거래 내역 엑셀 파일을 업로드하면 브랜드·거래처별 매출과 마진을 자동으로 분석합니다.</p>
+      </div>
+    </div>
+
+    <div class="dropzone empty" id="dropzone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+      <div id="dropzoneInner"></div>
+    </div>
+
+    <div class="results" id="results">
+      <div class="brand-tabs" id="brandTabs"></div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 id="chartTitle">월별 매출 추이</h2>
+          <span class="count" id="chartCount"></span>
+        </div>
+        <div class="panel-body" id="chartBody"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 id="panelTitle">거래처별 매출 현황</h2>
+          <span class="count" id="panelCount"></span>
+        </div>
+        <table>
+          <thead><tr id="tableHead"></tr></thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot><tr id="tableFoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </main>
+
+<script>
+  /* ============================================================
+     0. Icons / constants
+  ============================================================ */
+  const ICON_UPLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>';
+  const ICON_FILE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>';
+
+  const KNOWN_HEADERS = ['날짜','번호','종류','거래처','상품종류','상품명','수량','단가','합계금액','구분','적요'];
+  const FIELD_BY_HEADER = {
+    '날짜':'date', '번호':'no', '종류':'type', '거래처':'client', '상품종류':'category',
+    '상품명':'product', '수량':'qty', '단가':'price', '합계금액':'total', '구분':'gubun', '적요':'note'
+  };
+  const POSITIONAL_MAP = { date:0, no:1, type:2, client:3, category:4, product:5, qty:6, price:7, total:8, gubun:9, note:10 };
+
+  let allRows = [];       // parsed + filtered (매출, 배송비/택배비 제외) rows
+  let currentTab = 'ALL';
+
+  /* ============================================================
+     1. Helpers
+  ============================================================ */
+  function toNumber(v) {
+    if (typeof v === 'number') return v;
+    if (v instanceof Date) return 0;
+    if (typeof v === 'string') {
+      const cleaned = v.replace(/[,₩\s]/g, '');
+      const n = parseFloat(cleaned);
+      return isNaN(n) ? 0 : n;
+    }
+    return 0;
+  }
+
+  function toDateStr(v) {
+    if (v instanceof Date && !isNaN(v)) {
+      const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, '0'), d = String(v.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    if (typeof v === 'number' && v > 0 && window.XLSX && XLSX.SSF) {
+      try {
+        const parsed = XLSX.SSF.parse_date_code(v);
+        if (parsed && parsed.y) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+      } catch (e) {}
+    }
+    if (typeof v === 'string' && v.trim()) {
+      const s = v.trim();
+      const m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      const d = new Date(s);
+      if (!isNaN(d)) return toDateStr(d);
+      return s;
+    }
+    return '';
+  }
+
+  function formatWon(v) {
+    const eok = 100000000, man = 10000;
+    const sign = v < 0 ? '-' : '';
+    const abs = Math.abs(v);
+    if (abs >= eok) return sign + (abs / eok).toFixed(2).replace(/\.?0+$/, '') + '억원';
+    return sign + Math.round(abs / man).toLocaleString('ko-KR') + '만원';
+  }
+
+  function formatQty(v) { return Math.round(v).toLocaleString('ko-KR') + '개'; }
+
+  function marginRateClass(pct) {
+    if (pct >= 20) return 'fill-high';
+    if (pct >= 10) return 'fill-mid';
+    return 'fill-low';
+  }
+
+  function extractBrand(category) {
+    if (!category) return '기타';
+    const first = category.trim().split(/[_\s\-]/)[0];
+    return first ? first.toUpperCase() : '기타';
+  }
+
+  function computeMargin(row) {
+    const cat = (row.category || '').toUpperCase();
+    if (cat.includes('_S') && cat.includes('IPAD')) return row.total * 0.12;
+    if (cat.includes('_S') && cat.includes('CPU')) return row.total * 0.11;
+    return row.total * 0.15;
+  }
+
+  /* ============================================================
+     2. Excel parsing
+  ============================================================ */
+  function parseSheet(ws) {
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+    if (!aoa.length) return null;
+
+    let best = { rowIdx: -1, score: -1 };
+    for (let i = 0; i < Math.min(10, aoa.length); i++) {
+      const row = aoa[i];
+      const score = row.filter(c => KNOWN_HEADERS.includes(String(c).trim())).length;
+      if (score > best.score) best = { rowIdx: i, score };
+    }
+
+    let headerRowIdx, fieldIdx;
+    if (best.score >= 3) {
+      headerRowIdx = best.rowIdx;
+      fieldIdx = {};
+      aoa[headerRowIdx].forEach((h, i) => {
+        const key = FIELD_BY_HEADER[String(h).trim()];
+        if (key) fieldIdx[key] = i;
+      });
+    } else {
+      headerRowIdx = 0;
+      fieldIdx = { ...POSITIONAL_MAP };
+    }
+
+    const get = (row, key) => {
+      const idx = fieldIdx[key];
+      return idx === undefined || idx < 0 || idx >= row.length ? '' : row[idx];
+    };
+
+    const rows = aoa.slice(headerRowIdx + 1)
+      .filter(row => row.some(c => String(c).trim() !== ''))
+      .map(row => ({
+        date: toDateStr(get(row, 'date')),
+        no: get(row, 'no'),
+        type: String(get(row, 'type') || '').trim(),
+        client: String(get(row, 'client') || '').trim(),
+        category: String(get(row, 'category') || '').trim(),
+        product: String(get(row, 'product') || '').trim(),
+        qty: toNumber(get(row, 'qty')),
+        price: toNumber(get(row, 'price')),
+        total: toNumber(get(row, 'total')),
+        gubun: String(get(row, 'gubun') || '').trim(),
+        note: String(get(row, 'note') || '').trim(),
+      }))
+      .filter(r => r.client || r.category || r.total);
+
+    return { score: best.score, rows };
+  }
+
+  function chooseBestSheet(workbook) {
+    let best = null;
+    for (const name of workbook.SheetNames) {
+      const parsed = parseSheet(workbook.Sheets[name]);
+      if (!parsed || !parsed.rows.length) continue;
+      if (!best || parsed.score > best.score || (parsed.score === best.score && parsed.rows.length > best.rows.length)) {
+        best = { ...parsed, sheetName: name };
+      }
+    }
+    return best;
+  }
+
+  function handleFile(file) {
+    clearError();
+    const reader = new FileReader();
+    reader.onerror = () => showError('파일을 읽는 중 오류가 발생했습니다.');
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const best = chooseBestSheet(workbook);
+        if (!best) {
+          showError('시트에서 유효한 데이터를 찾을 수 없습니다. 컬럼 구성(날짜, 번호, 종류, 거래처, 상품종류, 상품명, 수량, 단가, 합계금액, 구분, 적요)을 확인해주세요.');
+          return;
+        }
+        const revenueRows = best.rows.filter(r => {
+          if (r.type !== '매출') return false;
+          const isShipping = [r.product, r.category, r.gubun].some(v => /배송비|택배비/.test(v || ''));
+          return !isShipping;
+        });
+        allRows = revenueRows;
+        renderFileBadge(file, best.sheetName, best.rows.length, revenueRows.length);
+        currentTab = 'ALL';
+        if (!revenueRows.length) {
+          document.getElementById('results').classList.remove('visible');
+          showError('“종류” 컬럼 값이 "매출"인 데이터를 찾지 못했습니다. 원본 데이터를 확인해주세요.');
+          return;
+        }
+        document.getElementById('results').classList.add('visible');
+        render();
+      } catch (err) {
+        showError('엑셀 파일을 분석하는 중 오류가 발생했습니다: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /* ============================================================
+     3. Dropzone UI
+  ============================================================ */
+  const dropzone = document.getElementById('dropzone');
+  const dropzoneInner = document.getElementById('dropzoneInner');
+  const fileInput = document.getElementById('fileInput');
+
+  function renderEmptyDz() {
+    dropzone.className = 'dropzone empty';
+    dropzoneInner.innerHTML = `
+      <div class="dz-center">
+        <div class="dz-icon">${ICON_UPLOAD}</div>
+        <div class="dz-title">엑셀 파일을 드래그하여 놓거나 <span class="dz-link">클릭하여 업로드</span>하세요</div>
+        <div class="dz-sub">필수 컬럼: 날짜, 번호, 종류, 거래처, 상품종류, 상품명, 수량, 단가, 합계금액, 구분, 적요 (.xlsx / .xls)</div>
+      </div>
+    `;
+  }
+
+  function renderFileBadge(file, sheetName, totalRows, revenueRows) {
+    dropzone.className = 'dropzone loaded';
+    dropzoneInner.innerHTML = `
+      <div class="dz-file-info">
+        <div class="dz-file-icon">${ICON_FILE}</div>
+        <div class="dz-file-meta">
+          <div class="dz-file-name">${file.name}</div>
+          <div class="dz-file-stats">시트: ${sheetName} · 전체 ${totalRows.toLocaleString('ko-KR')}행 · 매출 데이터 ${revenueRows.toLocaleString('ko-KR')}행</div>
+        </div>
+      </div>
+      <button type="button" class="dz-reupload" id="reuploadBtn">다른 파일 업로드</button>
+    `;
+    document.getElementById('reuploadBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+  }
+
+  function showError(msg) {
+    clearError();
+    const err = document.createElement('div');
+    err.className = 'dz-error';
+    err.id = 'dzError';
+    err.textContent = msg;
+    dropzone.appendChild(err);
+  }
+  function clearError() {
+    const existing = document.getElementById('dzError');
+    if (existing) existing.remove();
+  }
+
+  renderEmptyDz();
+
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.id === 'reuploadBtn') return;
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); });
+  });
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => { if (e.target !== dropzone && !dropzone.contains(e.target)) e.preventDefault(); });
+
+  /* ============================================================
+     4. Data aggregation
+  ============================================================ */
+  function getBrandList() {
+    const revByBrand = {};
+    allRows.forEach(r => {
+      const b = extractBrand(r.category);
+      revByBrand[b] = (revByBrand[b] || 0) + r.total;
+    });
+    return Object.keys(revByBrand).sort((a, b) => revByBrand[b] - revByBrand[a]);
+  }
+
+  function getRowsForTab(tab) {
+    if (tab === 'ALL') return allRows;
+    return allRows.filter(r => extractBrand(r.category) === tab);
+  }
+
+  function aggregateByClient(rows) {
+    const map = {};
+    rows.forEach(r => {
+      const key = r.client || '(미상)';
+      if (!map[key]) map[key] = { client: key, revenue: 0, margin: 0, qty: 0 };
+      map[key].revenue += r.total;
+      map[key].margin += computeMargin(r);
+      map[key].qty += r.qty;
+    });
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue || b.qty - a.qty);
+  }
+
+  function buildMonthlySeries(rows) {
+    const map = {};
+    rows.forEach(r => {
+      const key = /^\d{4}-\d{2}/.test(r.date) ? r.date.slice(0, 7) : '기타';
+      map[key] = (map[key] || 0) + r.total;
+    });
+    const known = Object.keys(map).filter(k => k !== '기타').sort();
+    const series = known.map(k => ({ month: k, value: map[k] }));
+    if (map['기타']) series.push({ month: '기타', value: map['기타'] });
+    return series;
+  }
+
+  /* ============================================================
+     5. Rendering
+  ============================================================ */
+  function renderTabs() {
+    const brands = getBrandList();
+    const el = document.getElementById('brandTabs');
+    const items = [...brands, '전체'];
+    el.innerHTML = items.map(name => {
+      const key = name === '전체' ? 'ALL' : name;
+      const active = key === currentTab ? 'active' : '';
+      return `<button class="brand-tab ${active}" data-tab="${key}">${name}</button>`;
+    }).join('');
+    el.querySelectorAll('.brand-tab').forEach(btn => {
+      btn.addEventListener('click', () => { currentTab = btn.dataset.tab; render(); });
+    });
+  }
+
+  function renderKpi(rows) {
+    const totalRevenue = rows.reduce((s, r) => s + r.total, 0);
+    const totalMargin = rows.reduce((s, r) => s + computeMargin(r), 0);
+    const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+    const clientCount = new Set(rows.map(r => r.client)).size;
+    const marginRate = totalRevenue ? (totalMargin / totalRevenue) * 100 : 0;
+
+    const cards = [
+      { label: '매출 합계', value: formatWon(totalRevenue), sub: `거래처 ${clientCount}곳`, icon: 'blue',
+        path: '<path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/>' },
+      { label: '마진 합계 (예상)', value: formatWon(totalMargin), sub: '리베이트/추정 마진율 기준', icon: 'green',
+        path: '<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>' },
+      { label: '마진율', value: marginRate.toFixed(1) + '%', sub: marginRate >= 15 ? '평균 이상' : '평균 이하', icon: 'gold',
+        subClass: marginRate >= 15 ? 'up' : '',
+        path: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
+      { label: '판매 수량', value: formatQty(totalQty), sub: '선택 브랜드 합산', icon: 'purple',
+        path: '<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/>' },
+    ];
+
+    document.getElementById('kpiGrid').innerHTML = cards.map(c => `
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">${c.label}</span>
+          <span class="kpi-icon ${c.icon}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.path}</svg>
+          </span>
+        </div>
+        <div class="kpi-value">${c.value}</div>
+        <div class="kpi-sub ${c.subClass || 'note'}">${c.sub}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderChart(rows) {
+    document.getElementById('chartTitle').textContent = (currentTab === 'ALL' ? '전체' : currentTab) + ' 월별 매출 추이';
+    const series = buildMonthlySeries(rows);
+    document.getElementById('chartCount').textContent = series.length ? `${series.length}개월` : '';
+    const body = document.getElementById('chartBody');
+    if (!series.length) { body.innerHTML = '<div class="chart-empty">표시할 데이터가 없습니다.</div>'; return; }
+
+    const W = Math.max(560, series.length * 88);
+    const H = 260, padL = 70, padR = 20, padT = 20, padB = 34;
+    const chartW = W - padL - padR, chartH = H - padT - padB;
+    const maxVal = Math.max(...series.map(s => s.value), 1);
+    const barGap = chartW / series.length;
+    const barWidth = Math.min(42, barGap * 0.5);
+
+    const gridLines = [0, 0.25, 0.5, 0.75, 1].map(f => {
+      const y = padT + chartH * (1 - f);
+      const val = maxVal * f;
+      return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="chart-grid"/>
+        <text x="${padL - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="chart-axis-label">${formatWon(val)}</text>`;
+    }).join('');
+
+    const bars = series.map((s, i) => {
+      const x = padL + i * barGap + (barGap - barWidth) / 2;
+      const h = maxVal ? (s.value / maxVal) * chartH : 0;
+      const y = padT + chartH - h;
+      const label = s.month.length === 7 ? s.month.slice(5) + '월' : s.month;
+      return `<g>
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="url(#barGrad)"><title>${s.month}: ${formatWon(s.value)}</title></rect>
+        <text x="${(x + barWidth / 2).toFixed(1)}" y="${H - 14}" text-anchor="middle" class="chart-axis-label">${label}</text>
+      </g>`;
+    }).join('');
+
+    body.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" class="monthly-chart-svg" preserveAspectRatio="xMinYMid meet">
+        <defs>
+          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3c89e8"/>
+            <stop offset="100%" stop-color="#1668dc"/>
+          </linearGradient>
+        </defs>
+        ${gridLines}
+        ${bars}
+      </svg>
+    `;
+  }
+
+  function renderTable(rows) {
+    const clients = aggregateByClient(rows);
+    document.getElementById('panelTitle').textContent = (currentTab === 'ALL' ? '전체' : currentTab) + ' 거래처별 매출 현황';
+    document.getElementById('panelCount').textContent = `총 ${clients.length}개 거래처`;
+
+    document.getElementById('tableHead').innerHTML = `
+      <th>거래처</th>
+      <th class="num">판매수량</th>
+      <th class="num">매출합계</th>
+      <th class="num">마진 (예상)</th>
+      <th class="num">마진율</th>
+    `;
+
+    document.getElementById('tableBody').innerHTML = clients.map((c, i) => {
+      const pct = c.revenue ? (c.margin / c.revenue) * 100 : 0;
+      return `
+        <tr>
+          <td>
+            <div class="client-cell">
+              <span class="rank-badge ${i < 3 ? 'top' : ''}">${i + 1}</span>
+              ${c.client}
+            </div>
+          </td>
+          <td class="num">${formatQty(c.qty)}</td>
+          <td class="num">${formatWon(c.revenue)}</td>
+          <td class="num">${formatWon(c.margin)}</td>
+          <td class="num">
+            <div class="margin-cell">
+              <div class="margin-bar-track"><div class="margin-bar-fill ${marginRateClass(pct)}" style="width:${Math.min(pct * 3, 100)}%"></div></div>
+              <span class="margin-pct">${pct.toFixed(1)}%</span>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('') || `<tr><td colspan="5" class="empty-result">표시할 거래처 데이터가 없습니다.</td></tr>`;
+
+    const totalRevenue = clients.reduce((s, c) => s + c.revenue, 0);
+    const totalMargin = clients.reduce((s, c) => s + c.margin, 0);
+    const totalQty = clients.reduce((s, c) => s + c.qty, 0);
+    const totalPct = totalRevenue ? (totalMargin / totalRevenue) * 100 : 0;
+
+    document.getElementById('tableFoot').innerHTML = `
+      <td>합계</td>
+      <td class="num">${formatQty(totalQty)}</td>
+      <td class="num">${formatWon(totalRevenue)}</td>
+      <td class="num">${formatWon(totalMargin)}</td>
+      <td class="num">${totalPct.toFixed(1)}%</td>
+    `;
+  }
+
+  function render() {
+    if (!allRows.length) return;
+    renderTabs();
+    const rows = getRowsForTab(currentTab);
+    renderKpi(rows);
+    renderChart(rows);
+    renderTable(rows);
+  }
+</script>
+</body>
+</html>
