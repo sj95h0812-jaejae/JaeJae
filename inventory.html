@@ -113,6 +113,31 @@ tr:hover td{background:#f5f6fa}
 .form-textarea{resize:vertical;min-height:60px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .btn-cancel{background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+/* 로그인 */
+.login-bg{position:fixed;inset:0;background:var(--bg);z-index:20000;display:flex;align-items:center;justify-content:center}
+.login-bg.hide{display:none}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:320px;box-shadow:0 8px 24px rgba(0,0,0,0.06)}
+.login-box .title{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:4px}
+.login-box .sub{font-size:11px;color:var(--text3);margin-bottom:18px}
+.login-err{font-size:11px;color:var(--danger);min-height:16px;margin-top:6px}
+.logout-btn{margin:auto 12px 12px;background:none;border:1px solid var(--border);border-radius:6px;padding:6px;font-size:11px;color:var(--text3);cursor:pointer;font-family:inherit}
+.logout-btn:hover{border-color:var(--danger);color:var(--danger)}
+/* 애플 입고현황 */
+.ap-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.ap-bar input,.ap-bar select{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-family:inherit;font-size:12px;outline:none}
+.ap-bar input{width:200px}
+.ap-card{margin-bottom:12px}
+.ap-card>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ap-card>summary::-webkit-details-marker{display:none}
+.ap-card>summary::before{content:"▸";color:var(--text3)}
+.ap-card[open]>summary::before{content:"▾"}
+.ap-card[open]>summary{border-bottom:1px solid var(--border)}
+.ap-date{font-size:14px;font-weight:700}
+.ap-meta{font-size:11px;color:var(--text3)}
+.ap-memo{margin:10px 14px 0;padding:7px 10px;background:rgba(217,119,6,0.07);border-left:3px solid var(--accent3);border-radius:4px;font-size:11px;color:var(--text2)}
+.ap-n{text-align:right;font-variant-numeric:tabular-nums}
+.ap-mono{font-family:Consolas,monospace;font-size:11px}
+.ap-end{color:var(--text2);font-size:11px;white-space:normal;min-width:160px}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:#c5cadf;border-radius:3px}
 </style>
@@ -128,11 +153,15 @@ tr:hover td{background:#f5f6fa}
   <div class="sidebar-item active" id="nav-all" onclick="showPage('all',this)">
     <div class="dot"></div> 전체 업데이트
   </div>
+  <div class="sidebar-item" id="nav-apple" onclick="showPage('apple',this)">
+    <div class="dot"></div> 🍎 애플 입고현황
+  </div>
   <div class="sidebar-section">
     브랜드별
     <button class="add-brand-btn" onclick="openAddBrandModal()" title="브랜드 추가">+</button>
   </div>
   <div id="brand-nav-list"></div>
+  <button class="logout-btn" onclick="window.AUTH&&window.AUTH.logout()">로그아웃</button>
 </div>
 
 <div class="main">
@@ -256,6 +285,26 @@ tr:hover td{background:#f5f6fa}
         </div>
       </div>
     </div>
+
+    <!-- 애플 입고현황 페이지 -->
+    <div id="page-apple" style="display:none">
+      <div class="kpi-grid" id="kpi-apple" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="ap-bar">
+        <div class="tabs" style="margin-bottom:0;border-bottom:none">
+          <div class="tab active" data-ap="inbound" onclick="apTab('inbound')">입고 일정</div>
+          <div class="tab" data-ap="po" onclick="apTab('po')">발주(CTO PO)</div>
+          <div class="tab" data-ap="sku" onclick="apTab('sku')">품목별 합계</div>
+        </div>
+        <span style="flex:1"></span>
+        <input type="text" id="ap-q" placeholder="🔍 품목, MPN, 고객사..." oninput="renderApplePage()">
+        <select id="ap-owner" onchange="renderApplePage()"><option value="">담당자 전체</option></select>
+        <select id="ap-range" onchange="renderApplePage()">
+          <option value="30">최근 30일</option><option value="90" selected>최근 90일</option><option value="0">전체 기간</option>
+        </select>
+      </div>
+      <div style="border-bottom:1px solid var(--border);margin-bottom:12px"></div>
+      <div id="ap-view"><div class="card"><div class="empty">데이터 불러오는 중...</div></div></div>
+    </div>
   </div>
 </div>
 
@@ -347,10 +396,25 @@ tr:hover td{background:#f5f6fa}
   <div id="hist-content"></div>
 </div>
 
+<!-- 로그인 화면 -->
+<div class="login-bg" id="login-bg">
+  <form class="login-box" onsubmit="event.preventDefault();window.AUTH&&window.AUTH.login()">
+    <div class="title">📦 재고·입고 현황판</div>
+    <div class="sub">비밀번호를 입력하세요</div>
+    <input id="login-pw" type="password" class="form-input" placeholder="비밀번호" autocomplete="current-password" autofocus>
+    <div class="login-err" id="login-err"></div>
+    <button type="submit" class="btn-primary" id="login-btn" style="width:100%;margin-top:6px">들어가기</button>
+  </form>
+</div>
+
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// 공용 로그인 계정 (Firebase 콘솔 > Authentication 에 같은 이메일로 사용자 등록)
+const LOGIN_EMAIL = "all@snlcom.co.kr";
 
 const app = initializeApp({
   apiKey:"AIzaSyAOIT215e36Opu3fKH6nw4rWxH38_3IgJI",
@@ -371,8 +435,34 @@ window.DB = {
   deleteBrand: (id) => deleteDoc(doc(db,'brands',id)),
 };
 
+const auth = getAuth(app);
+let unsubs = [];
+window.AUTH = {
+  login: async () => {
+    const pw = document.getElementById('login-pw').value;
+    const err = document.getElementById('login-err');
+    const btn = document.getElementById('login-btn');
+    err.textContent = ''; btn.disabled = true;
+    try { await signInWithEmailAndPassword(auth, LOGIN_EMAIL, pw); }
+    catch(e) {
+      err.textContent = /invalid-credential|wrong-password|user-not-found/.test(e.code||'') ? '비밀번호가 틀렸습니다' :
+                        /too-many-requests/.test(e.code||'') ? '시도가 너무 많습니다. 잠시 후 다시 해주세요' : '로그인 오류: '+(e.code||e.message);
+    }
+    btn.disabled = false;
+  },
+  logout: () => signOut(auth),
+};
+
+onAuthStateChanged(auth, user => {
+  document.getElementById('login-bg').classList.toggle('hide', !!user);
+  unsubs.forEach(u=>u()); unsubs = [];
+  if(user) { startSync(); }
+  else { document.getElementById('login-pw').value=''; setTimeout(()=>document.getElementById('login-pw').focus(),0); }
+});
+
+function startSync() {
 // 재고 실시간
-onSnapshot(query(collection(db,'inventory'), orderBy('updatedAt','desc')), snap=>{
+unsubs.push(onSnapshot(query(collection(db,'inventory'), orderBy('updatedAt','desc')), snap=>{
   window.ALL_ITEMS = [];
   snap.forEach(d => window.ALL_ITEMS.push({id:d.id,...d.data()}));
   document.getElementById('sync-badge').textContent = '✅ 실시간 동기화';
@@ -384,10 +474,17 @@ onSnapshot(query(collection(db,'inventory'), orderBy('updatedAt','desc')), snap=
 }, ()=>{
   document.getElementById('sync-badge').textContent = '❌ 연결 오류';
   document.getElementById('sync-badge').style.color = 'var(--danger)';
-});
+}));
+
+// 애플 입고/발주 (PC 수집기가 올린 데이터)
+unsubs.push(onSnapshot(collection(db,'apple_records'), snap=>{
+  const recs = [];
+  snap.forEach(d=>{ try { recs.push(JSON.parse(d.data().json)); } catch(e){} });
+  window.setAppleRecords(recs, snap.docs.reduce((m,d)=>{ const u=d.data().uploadedAt||''; return u>m?u:m; }, ''));
+}, e=>console.warn('apple_records', e)));
 
 // 브랜드 실시간
-onSnapshot(collection(db,'brands'), snap=>{
+unsubs.push(onSnapshot(collection(db,'brands'), snap=>{
   if(snap.empty) { renderBrandNav(); return; }
   const fbBrands = [];
   snap.forEach(d => fbBrands.push({docId:d.id,...d.data()}));
@@ -400,7 +497,8 @@ onSnapshot(collection(db,'brands'), snap=>{
   fbBrands.filter(b=>!defIds.includes(b.id)).forEach(b=>merged.push(b));
   BRANDS = merged;
   renderBrandNav();
-});
+}));
+}
 </script>
 
 <script>
@@ -471,6 +569,18 @@ function showPage(page, el) {
   document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
   if(el) el.classList.add('active');
 
+  const isApple = page==='apple';
+  document.getElementById('page-apple').style.display = isApple?'':'none';
+  if(isApple) {
+    document.getElementById('page-all').style.display = 'none';
+    document.getElementById('page-brand').style.display = 'none';
+    document.getElementById('add-btn').style.display = 'none';
+    document.getElementById('topbar-title').textContent = '🍎 애플 입고현황';
+    document.getElementById('topbar-sub').textContent = 'Outlook 입고 안내·CTO PO 메일에서 자동 수집';
+    renderApplePage();
+    return;
+  }
+
   const isAll = page==='all';
   document.getElementById('page-all').style.display = isAll?'':'none';
   document.getElementById('page-brand').style.display = isAll?'none':'';
@@ -496,6 +606,7 @@ function showPage(page, el) {
 
 function renderPage(page) {
   if(page==='all') { renderAllPage(); }
+  else if(page==='apple') { renderApplePage(); }
   else { renderBrandPage(page); }
 }
 
@@ -1258,6 +1369,153 @@ async function ctxDelete() {
   if(window.DB&&ctxBrandDocId) await window.DB.deleteBrand(ctxBrandDocId).catch(()=>{});
   renderBrandNav();
   if(window.CUR_PAGE===ctxBrandId) showPage('all',document.getElementById('nav-all'));
+}
+
+// ══════════════ 🍎 애플 입고현황 ══════════════
+let AP_INBOUND = [], AP_PO = [], AP_UPDATED = '', apCurTab = 'inbound', apLoaded = false;
+const apArr = x => Array.isArray(x) ? x : (x && typeof x==='object' ? Object.values(x) : (x==null ? [] : [x]));
+const apEsc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const apNorm = s => String(s ?? '').replace(/\s/g,'').toLowerCase();
+const apWon = n => n==null ? '' : Math.round(n).toLocaleString('ko-KR');
+const apQty = n => n==null ? '' : (+n).toLocaleString('ko-KR');
+const apYmd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const AP_DOW = ['일','월','화','수','목','금','토'];
+const apDate = d => { if(!d) return '날짜 미상'; const t = new Date(d+'T00:00'); return `${d.slice(5).replace('-','/')}(${AP_DOW[t.getDay()]})`; };
+
+window.setAppleRecords = function(recs, updated) {
+  recs.forEach(r => { r.items = apArr(r.items); r.memo = apArr(r.memo); r.files = apArr(r.files); });
+  AP_INBOUND = recs.filter(r=>r.kind==='inbound').sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.receivedAt||'').localeCompare(a.receivedAt||''));
+  AP_PO = recs.filter(r=>r.kind==='po').sort((a,b)=>(b.receivedAt||'').localeCompare(a.receivedAt||''));
+  AP_UPDATED = updated; apLoaded = true;
+  const owners = new Set();
+  AP_INBOUND.forEach(r=>r.items.forEach(i=>i.owner && i.owner!=='재고' && owners.add(i.owner)));
+  AP_PO.forEach(r=>r.items.forEach(i=>i.owner && owners.add(i.owner)));
+  const sel = document.getElementById('ap-owner'), cur = sel.value;
+  sel.innerHTML = '<option value="">담당자 전체</option>' + [...owners].sort().map(o=>`<option>${apEsc(o)}</option>`).join('') + '<option value="재고">재고(미배정)</option>';
+  sel.value = cur;
+  if(window.CUR_PAGE==='apple') renderApplePage();
+};
+
+function apTab(t) {
+  apCurTab = t;
+  document.querySelectorAll('[data-ap]').forEach(el=>el.classList.toggle('active', el.dataset.ap===t));
+  renderApplePage();
+}
+
+// 발주 ↔ 입고 매칭: 입고 MPN 이 PO MPN 으로 시작 + Enduser 에 고객사명 포함 + 입고일 ≥ PO일
+function apFindInbound(po, ignoreMpn) {
+  const m = apNorm(po.mpn), c = apNorm(po.customer), hits = [];
+  AP_INBOUND.forEach(r=>{
+    if(po.poDate && r.date && r.date < po.poDate) return;
+    r.items.forEach(i=>{
+      if(!ignoreMpn && !apNorm(i.mpn).startsWith(m)) return;
+      if(c && !apNorm(i.enduser).includes(c)) return;
+      if(ignoreMpn && !c) return;
+      hits.push({date:r.date, item:i});
+    });
+  });
+  return hits;
+}
+
+function renderApplePage() {
+  const view = document.getElementById('ap-view');
+  if(!view) return;
+  const today = apYmd(new Date());
+  // KPI
+  const latest = AP_INBOUND[0];
+  const tq = latest ? latest.items.reduce((s,i)=>s+(i.qty||0),0) : 0;
+  const upcoming = AP_INBOUND.filter(r=>r.date && r.date>=today).map(r=>r.date).sort()[0];
+  let poLines=0, waiting=0;
+  AP_PO.forEach(r=>r.items.forEach(i=>{ poLines++; if(!apFindInbound(i).length) waiting++; }));
+  document.getElementById('kpi-apple').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">최근 입고일</div><div class="kpi-value">${latest?apDate(latest.date):'-'}</div><div class="kpi-sub">${latest?latest.items.length+'개 품목':''}</div></div>
+    <div class="kpi-card"><div class="kpi-label" style="color:var(--accent2)">최근 입고 수량</div><div class="kpi-value" style="color:var(--accent2)">${apQty(tq)}</div><div class="kpi-sub">대</div></div>
+    <div class="kpi-card"><div class="kpi-label" style="color:var(--accent)">예정된 입고</div><div class="kpi-value" style="color:var(--accent)">${upcoming?apDate(upcoming):'없음'}</div><div class="kpi-sub">오늘 이후</div></div>
+    <div class="kpi-card"><div class="kpi-label" style="color:var(--accent3)">CTO 입고 대기</div><div class="kpi-value" style="color:var(--accent3)">${waiting} <span style="font-size:12px;color:var(--text3)">/ ${poLines}</span></div><div class="kpi-sub">${AP_UPDATED?'수집 '+AP_UPDATED:''}</div></div>`;
+
+  if(!apLoaded) { view.innerHTML = '<div class="card"><div class="empty">데이터 불러오는 중...</div></div>'; return; }
+  if(!AP_INBOUND.length && !AP_PO.length) { view.innerHTML = '<div class="card"><div class="empty">아직 올라온 데이터가 없습니다. PC의 수집기가 실행되면 자동으로 채워집니다.</div></div>'; return; }
+
+  const raw = (document.getElementById('ap-q').value||'').trim();
+  const q = apNorm(raw), owner = document.getElementById('ap-owner').value;
+  const days = +document.getElementById('ap-range').value;
+  const from = days ? apYmd(new Date(Date.now()-days*864e5)) : '';
+  const hit = (...f) => !q || f.some(x=>apNorm(x).includes(q));
+  const hl = s => { const t = apEsc(s); if(!raw) return t; const i = t.toLowerCase().indexOf(raw.toLowerCase()); return i<0 ? t : t.slice(0,i)+'<mark>'+t.slice(i,i+raw.length)+'</mark>'+t.slice(i+raw.length); };
+  const empty = '<div class="card"><div class="empty">조건에 맞는 항목이 없습니다</div></div>';
+
+  if(apCurTab==='inbound') {
+    const out = [];
+    AP_INBOUND.forEach((r,idx)=>{
+      if(from && r.date && r.date<from) return;
+      const items = r.items.filter(i=>(!owner||i.owner===owner) && hit(i.mpn,i.desc,i.enduser));
+      if(!items.length) return;
+      const sq = items.reduce((s,i)=>s+(i.qty||0),0), sa = items.reduce((s,i)=>s+(i.amount||0),0);
+      const future = r.date && r.date>=today;
+      out.push(`<details class="card ap-card" ${idx===0||q||owner?'open':''}>
+        <summary>
+          <span class="ap-date">${apDate(r.date)}</span>
+          <span class="badge ${future?'badge-입고예정':'badge-입고완료'}">${future?'입고예정':'입고'}</span>
+          <span class="ap-meta" style="flex:1">${apEsc(r.subject)}</span>
+          <span class="ap-meta">${items.length}개 품목 · <b style="color:var(--text)">${apQty(sq)}</b>대 · ${apWon(sa)}원</span>
+        </summary>
+        ${r.memo.map(m=>`<div class="ap-memo">📌 ${apEsc(m)}</div>`).join('')}
+        <div class="table-wrap" style="margin-top:${r.memo.length?'10px':'0'}"><table>
+          <thead><tr><th>Enduser</th><th>MPN</th><th>Description</th><th class="ap-n">수량</th><th class="ap-n">단가</th><th class="ap-n">금액</th><th class="ap-n">소비자가</th><th>비고</th></tr></thead>
+          <tbody>${items.map(i=>`<tr><td class="ap-end">${hl(i.enduser||'')}</td><td class="ap-mono">${hl(i.mpn)}</td><td>${hl(i.desc||'')}</td>
+            <td class="ap-n"><b>${apQty(i.qty)}</b></td><td class="ap-n">${apWon(i.unit)}</td><td class="ap-n">${apWon(i.amount)}</td><td class="ap-n">${apWon(i.retail)}</td><td>${apEsc(i.note||'')}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <div class="ap-meta" style="padding:8px 14px">받은 시각 ${apEsc(r.receivedAt)} · ${apEsc(r.from||'')} · ${apEsc(r.files.join(', '))}</div>
+      </details>`);
+    });
+    view.innerHTML = out.join('') || empty;
+  }
+  else if(apCurTab==='po') {
+    const uniq = h => h.map(x=>apDate(x.date)).filter((v,k,a)=>a.indexOf(v)===k).join(', ');
+    const rows = [];
+    AP_PO.forEach(r=>r.items.forEach(i=>{
+      if(owner && i.owner!==owner) return;
+      if(from && (i.poDate||(r.receivedAt||'').slice(0,10))<from) return;
+      if(!hit(i.mpn,i.desc,i.customer,i.poNo)) return;
+      const h = apFindInbound(i);
+      let st;
+      if(h.length) st = `<span class="badge badge-입고완료">입고 ${uniq(h)}</span>`;
+      else {
+        const loose = apFindInbound(i, true);
+        st = loose.length
+          ? `<span class="badge badge-영업확인필요" title="${apEsc(loose.map(x=>`${x.date} ${x.item.mpn} ${x.item.desc} — ${x.item.enduser}`).join('\n'))}">확인필요 · 고객사 입고 ${uniq(loose)}</span>`
+          : '<span class="badge badge-입고예정">입고 대기</span>';
+      }
+      const spec = [i.cpu,i.ram,i.ssd,i.etc].filter(Boolean).join(' / ');
+      rows.push(`<tr><td>${st}</td><td>${apDate(i.poDate)}</td><td class="ap-mono">${hl(i.poNo||'')}</td><td>${apEsc(i.owner||'')}</td><td style="font-weight:600">${hl(i.customer||'')}</td>
+        <td class="ap-mono">${hl(i.mpn)}</td><td style="white-space:normal;min-width:220px">${hl(i.desc||'')}${spec?`<div class="ap-meta">${apEsc(spec)}</div>`:''}</td>
+        <td class="ap-n"><b>${apQty(i.qty)}</b></td><td class="ap-n">${apWon(i.total)}</td></tr>`);
+    }));
+    view.innerHTML = rows.length ? `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>상태</th><th>PO일</th><th>PO No</th><th>담당</th><th>고객사</th><th>MPN</th><th>사양</th><th class="ap-n">수량</th><th class="ap-n">총금액</th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>
+      <div class="ap-meta" style="padding:8px 14px">상태는 입고 파일의 MPN(앞자리 일치)과 Enduser(고객사명 포함)로 자동 추정합니다.</div></div>` : empty;
+  }
+  else {
+    const map = new Map();
+    AP_INBOUND.forEach(r=>{
+      if(from && r.date && r.date<from) return;
+      r.items.forEach(i=>{
+        if(owner && i.owner!==owner) return;
+        if(!hit(i.mpn,i.desc,i.enduser)) return;
+        const e = map.get(i.mpn) || {mpn:i.mpn, desc:i.desc, qty:0, amount:0, stock:0, dates:new Set()};
+        e.qty += i.qty||0; e.amount += i.amount||0; if(i.owner==='재고') e.stock += i.qty||0;
+        if(r.date) e.dates.add(r.date);
+        map.set(i.mpn, e);
+      });
+    });
+    const rows = [...map.values()].sort((a,b)=>b.qty-a.qty);
+    view.innerHTML = rows.length ? `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>MPN</th><th>Description</th><th class="ap-n">입고 합계</th><th class="ap-n">재고(미배정)</th><th class="ap-n">금액</th><th>입고일</th></tr></thead>
+      <tbody>${rows.map(e=>`<tr><td class="ap-mono">${hl(e.mpn)}</td><td>${hl(e.desc||'')}</td><td class="ap-n"><b>${apQty(e.qty)}</b></td>
+        <td class="ap-n">${e.stock?apQty(e.stock):''}</td><td class="ap-n">${apWon(e.amount)}</td><td>${[...e.dates].sort().reverse().map(apDate).join(', ')}</td></tr>`).join('')}</tbody>
+    </table></div></div>` : empty;
+  }
 }
 </script>
 </body>
